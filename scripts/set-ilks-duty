@@ -17,6 +17,7 @@ for token in $tokens; do
         duty=$(seth --to-uint256 "${duty%.*}")
         calldata="$(seth calldata 'file(address,address,address,bytes32,bytes32,uint256)' "$MCD_PAUSE" "$MCD_GOV_ACTIONS" "$MCD_JUG" "$(seth --to-bytes32 "$(seth --from-ascii "${token}-${ilk}")")" "$(seth --to-bytes32 "$(seth --from-ascii "duty")")" "$duty")"
         seth send "$PROXY_DEPLOYER" 'execute(address,bytes memory)' "$PROXY_PAUSE_ACTIONS" "$calldata"
+        export ETH_NONCE="$(($ETH_NONCE + 1))"
     done
 done
 

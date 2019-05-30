@@ -11,6 +11,7 @@ loadAddresses
 tokens=$(jq -r ".tokens | keys_unsorted[]" "$CONFIG_FILE")
 for token in $tokens; do
     seth send "$(eval echo "\$PIP_${token}")" 'kiss(address)' "$MCD_SPOT"
+    export ETH_NONCE="$(($ETH_NONCE + 1))"
 done
 
 echo "SET ILKS PIP WHITELIST COMPLETED SUCCESSFULLY"

@@ -6,24 +6,30 @@
 # Deploy Multicall (no solc optimization)
 dappBuild multicall
 MULTICALL=$(dappCreate multicall Multicall)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Deploy Token Faucet (no solc optimization)
 dappBuild token-faucet
 test -z "$FAUCET" && FAUCET=$(dappCreate token-faucet TokenFaucet "$(seth --to-uint256 "$(seth --to-wei 50 ETH)")")
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Deploy Guard for Gov and IOU tokens (no solc optimization)
 dappBuild ds-guard
 MCD_GOV_GUARD=$(dappCreate ds-guard DSGuard)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Deploy ProxyRegistry (no solc optimization)
 dappBuild proxy-registry
 PROXY_FACTORY=$(dappCreate proxy-registry DSProxyFactory)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 PROXY_REGISTRY=$(dappCreate proxy-registry ProxyRegistry "$PROXY_FACTORY")
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 PATH="$DAPP_LIB/dss-deploy/bin:$PATH"
 
 # Deploy Fabs (no solc optimization)
 deploy-fab
+export ETH_NONCE="$(($ETH_NONCE + 13))"
 # shellcheck source=/dev/null
 . "load-fab-$(seth chain)"
 rm "load-fab-$(seth chain)"
@@ -36,6 +42,7 @@ unset MCD_ADM
 
 # Deploy MCD Core Contratcs (solc optimized)
 deploy-core
+export ETH_NONCE="$(($ETH_NONCE + 10))"
 # shellcheck source=/dev/null
 . "load-mcd-$(seth chain)"
 rm "load-mcd-$(seth chain)"
@@ -53,6 +60,7 @@ for token in $tokens; do
         fi
 
         deploy-ilk-"$(echo "$token" | tr '[:upper:]' '[:lower:]')" "$ilk"
+        export ETH_NONCE=$(seth nonce $ETH_FROM)
 
         # shellcheck source=/dev/null
         . "load-ilk-$(echo "$token" | tr '[:upper:]' '[:lower:]')-$(echo "$ilk" | tr '[:upper:]' '[:lower:]')-$(seth chain)"
@@ -60,6 +68,7 @@ for token in $tokens; do
 
         if [[ "$token" != "ETH" && "$newToken" == true ]]; then
             seth send "$(eval echo "\$$token")" 'transfer(address,uint256)' "$FAUCET" "$(seth --to-uint256 "$(seth --to-wei 999000 ETH)")"
+            export ETH_NONCE="$(($ETH_NONCE + 1))"
         fi
         export SKIP_BUILD=true
     done
@@ -67,15 +76,18 @@ done
 
 # As all initial collaterals were deployed, we can remove authority of the deployment contract from the core contracts
 seth send "$MCD_DEPLOY" 'releaseAuth()'
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 for token in $tokens; do
     ilks=$(jq -r ".tokens.${token}.ilks | keys_unsorted[]" "$CONFIG_FILE")
     for ilk in $ilks; do
         seth send "$MCD_DEPLOY" 'releaseAuthFlip(bytes32)' "$(seth --to-bytes32 "$(seth --from-ascii "${token}-${ilk}")")"
+        export ETH_NONCE="$(($ETH_NONCE + 1))"
     done
 done
 
 # Deploy Pause Plan - Library functions for the Pause (no solc optimization)
 MCD_GOV_ACTIONS=$(dappCreate dss-deploy GovActions)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 unset SKIP_BUILD
 
@@ -83,46 +95,63 @@ dappBuild dss-proxy-actions
 
 # Deploy Proxy Actions (no solc optimization)
 PROXY_ACTIONS=$(dappCreate dss-proxy-actions DssProxyActions)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Deploy CdpManager (no solc optimization)
 CDP_MANAGER=$(dappCreate dss-proxy-actions DssCdpManager "$MCD_VAT")
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 GET_CDPS=$(dappCreate dss-proxy-actions GetCdps)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 dappBuild ds-chief
 
 # Deploy Gov token if doesn't exist
 if [[ -z "$MCD_GOV" ]]; then
     MCD_GOV=$(dappCreate ds-chief DSToken "$(seth --to-bytes32 "$(seth --from-ascii "MKR")")")
+    export ETH_NONCE="$(($ETH_NONCE + 1))"
     export MCD_GOV
     seth send "$MCD_GOV" 'mint(address,uint256)' "$FAUCET" "$(seth --to-uint256 "$(seth --to-wei 1000000 ETH)")"
+    export ETH_NONCE="$(($ETH_NONCE + 1))"
     seth send "$MCD_GOV" 'setAuthority(address)' "$MCD_GOV_GUARD"
+    export ETH_NONCE="$(($ETH_NONCE + 1))"
     seth send "$FAUCET" 'gulp(address)' "$MCD_GOV"
+    export ETH_NONCE="$(($ETH_NONCE + 1))"
     # Allow Flop to mint Gov token
     seth send "$MCD_GOV_GUARD" 'permit(address,address,bytes32)' "$MCD_FLOP" "$MCD_GOV" "$(seth --to-bytes32 "$(seth sig 'mint(address,uint256)')")"
+    export ETH_NONCE="$(($ETH_NONCE + 1))"
 fi
 
 # Deploy Pause Proxy Actions (support contract for executing initial set up of the dss system)
 dappBuild testchain-pause-proxy-actions
 
 PROXY_PAUSE_ACTIONS=$(dappCreate testchain-pause-proxy-actions TestchainPauseProxyActions)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 seth send "$PROXY_REGISTRY" 'build()'
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Get a proxy for the deployer address
 PROXY_DEPLOYER=0x"$(seth call "$PROXY_REGISTRY" 'proxies(address)(address)' "$ETH_FROM")"
 
 # Set the proxy address as root of the roles (in order to be able to do all the variables set up)
 seth send "$MCD_ADM" 'setRootUser(address,bool)' "$PROXY_DEPLOYER" true
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Deploy chief as new $MCD_ADM (no solc optimization)
 MCD_IOU=$(dappCreate ds-chief DSToken "$(seth --to-bytes32 "$(seth --from-ascii "IOU")")")
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 seth send "$MCD_IOU" 'setAuthority(address)' "$MCD_GOV_GUARD"
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 MCD_ADM=$(dappCreate ds-chief DSChief "$MCD_GOV" "$MCD_IOU" 5)
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 seth send "$MCD_GOV_GUARD" 'permit(address,address,bytes32)' "$MCD_ADM" "$MCD_IOU" "$(seth --to-bytes32  "$(seth sig 'mint(address,uint256)')")"
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 seth send "$MCD_GOV_GUARD" 'permit(address,address,bytes32)' "$MCD_ADM" "$MCD_IOU" "$(seth --to-bytes32  "$(seth sig 'burn(address,uint256)')")"
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Deploy Vote Proxy Factory (no solc optimization)
 dappBuild vote-proxy --use solc:0.4.25
 VOTE_PROXY_FACTORY=$(dappCreate vote-proxy VoteProxyFactory "$MCD_ADM")
+export ETH_NONCE="$(($ETH_NONCE + 1))"
 
 # Copy dss-deploy abi files
 copyAbis dss-deploy

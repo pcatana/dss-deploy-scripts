@@ -5,7 +5,9 @@
 CONFIG_STEP=$(setConfigStep "kovan")
 export CONFIG_STEP
 
-test "$(seth chain)" == "kovan" || exit 1
+# test "$(seth chain)" == "kovan" || exit 1
+
+export ETH_NONCE=$(seth nonce $ETH_FROM)
 
 # Set verify contract option in Etherscan if the API key is in the config file
 etherscanApiKey=$(jq -r ".etherscanApiKey" "$CONFIG_FILE")
