@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+. "${LIB_DIR:-$(cd "${0%/*}/../lib"&&pwd)}/common.sh"
+
+# exit if we are on testnet
+test "$(seth chain)" == "testchain" || exit 1
+
+# pulls the addresses from deployment into the environment
+loadAddresses
+
+# Set verify contract option in Etherscan if the API key is in the config file
+etherscanApiKey=$(jq -r ".etherscanApiKey" "$CONFIG_FILE")
+if [[ "$etherscanApiKey" != "" ]]; then
+    export DAPP_VERIFY_CONTRACT="yes"
+    export ETHERSCAN_API_KEY=$etherscanApiKey
+
+    dapp verify-contract
+
+  log "ETHERSCAN VERIFICATION COMPLETED SUCCESSFULLY"
+else
+  log "ETHERSCAN VERIFICATION FAILED, NO ETHERSCAN_API_KEY FOUND"
+fi
+

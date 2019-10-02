@@ -395,3 +395,5 @@ fi
 "$LIBEXEC_DIR"/set-ilks-osm
 
 "$LIBEXEC_DIR"/set-pause-auth-delay
+
+"$LIBEXEC_DIR"/verify-etherscan-contract
