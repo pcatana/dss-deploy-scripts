@@ -64,7 +64,16 @@ dappCreate() {
     set -e
     local lib; lib=$1
     local class; class=$2
-    DAPP_OUT="$DAPP_LIB/$lib/out" dapp create "$class" "${@:3}"
+
+    # verify contract on Etherscan if the API key is in the config file
+    etherscanApiKey=$(jq -r ".etherscanApiKey" "$CONFIG_FILE")
+    if [[ "$etherscanApiKey" != "" ]]; then
+        export ETHERSCAN_API_KEY=$etherscanApiKey
+        DAPP_OUT="$DAPP_LIB/$lib/out" dapp create --verify "$class" "${@:3}"
+    else
+        DAPP_OUT="$DAPP_LIB/$lib/out" dapp create "$class" "${@:3}"
+    fi
+
     copyAbis "$lib"
 }
 
