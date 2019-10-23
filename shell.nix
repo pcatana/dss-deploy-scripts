@@ -8,10 +8,14 @@
 
 let
   tdds = import ./. args;
+  dapp2nix = import (fetchGit {
+    url = "https://github.com/icetan/dapp2nix";
+    ref = "json-specs";
+    rev = "ce48c4b75f18dbd89321c6576842d2a48aab2e72";
+  }) {};
 in mkShell {
   buildInputs = tdds.bins ++ [
     tdds
-    sethret
     dapp2nix
     procps
   ];
